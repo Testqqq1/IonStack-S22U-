@@ -39,6 +39,18 @@ jobs:
           test -s build/S908EXXSEGZH4/bin/cve-2026-43499-root
           test -s build/S908EXXSEGZH4/bin/cve-exp32
 
+      - name: Verify ARM Bionic TLS alignment
+        run: |
+          set -euo pipefail
+          binary=build/S908EXXSEGZH4/bin/cve-exp32
+          readelf -W -l "$binary" | grep -E '(^|[[:space:]])TLS[[:space:]]'
+          align_hex="$(readelf -W -l "$binary" | awk '$1 == "TLS" { print $NF; exit }')"
+          if [ -z "$align_hex" ] || [ "$((align_hex))" -lt 32 ]; then
+            echo "Android ARM Bionic requires PT_TLS alignment >= 32 (actual: ${align_hex:-missing})" >&2
+            exit 1
+          fi
+          echo "PT_TLS alignment verified: $align_hex"
+
       - name: Prepare download and checksum
         run: |
           set -euo pipefail
