@@ -1,0 +1,60 @@
+name: Build IonStack for S22 Ultra (S908EXXSEGZH4)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-s22u.yml'
+      - 'src/**'
+      - 'Makefile'
+
+permissions:
+  contents: read
+
+jobs:
+  build-s22u:
+    name: Compile Android 16 / Kernel 5.10.236
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Android NDK r27c
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+          add-to-path: false
+
+      - name: Compile the matching S22 Ultra firmware target
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          make PROJECT=S908EXXSEGZH4 info
+          make PROJECT=S908EXXSEGZH4 clean preload root-helper
+          test -s build/S908EXXSEGZH4/bin/cve-2026-43499
+          test -s build/S908EXXSEGZH4/bin/cve-2026-43499-root
+          test -s build/S908EXXSEGZH4/bin/cve-exp32
+
+      - name: Prepare download and checksum
+        run: |
+          set -euo pipefail
+          cd build/S908EXXSEGZH4/bin
+          sha256sum cve-2026-43499 cve-2026-43499-root cve-exp32 > SHA256SUMS.txt
+          file cve-2026-43499 cve-2026-43499-root cve-exp32
+          ls -lh cve-2026-43499 cve-2026-43499-root cve-exp32 SHA256SUMS.txt
+
+      - name: Upload downloadable files
+        uses: actions/upload-artifact@v4
+        with:
+          name: IonStack-S908EXXSEGZH4
+          path: |
+            build/S908EXXSEGZH4/bin/cve-2026-43499
+            build/S908EXXSEGZH4/bin/cve-2026-43499-root
+            build/S908EXXSEGZH4/bin/cve-exp32
+            build/S908EXXSEGZH4/bin/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
